@@ -1,0 +1,168 @@
+from phevaluator import evaluate_cards
+import random
+
+suits = ['d','s','c','h']
+ranks = ['A','2','3','4','5','6','7','8','9','T','J','Q','K']
+cards = []
+for r in ranks:
+    for s in suits:
+        cards.append(r+s)
+
+#Spielverlaufs-Simulation 
+def simulate(hand, table, players, bereich1, bereich2):
+    hands = []
+    deck = random.sample(cards,len(cards)) #shuffle the deck
+    hand = hand[:]
+    table = table[:]
+
+    full = table + hand
+    deck = list(filter(lambda x: x not in full, deck))
+
+    #deal cards to players
+    for i in range(players):
+        hn = []
+        hn.append(deck[0])
+        deck = deck[1:]
+        hn.append(deck[0])
+        deck = deck[1:]
+        hands.append(hn)
+
+    #überprüft range gegner   
+    richtig=0
+    beide_richtig=0
+    for check_hand_bereich in bereich1:
+        if check_hand_bereich==hands[0]:
+            richtig+=1
+    if richtig>0:
+            beide_richtig+=1
+
+    if players > 1:
+        richtig=0
+        for check_hand_bereich in bereich2:
+            if check_hand_bereich==hands[1]:
+                richtig+=1
+        if richtig>0:
+                beide_richtig+=1
+    if players>2:
+        beide_richtig+=(players-2)
+    
+    if beide_richtig==players:
+        #flop, turn, river
+        while len(table) < 5:
+            card = deck.pop(0)
+            table.append(card)
+            full.append(card)
+        my_hand_rank = evaluate_cards(full[0],full[1],full[2],full[3],full[4],full[5],full[6])
+
+        ergebnis=[]
+        for check_hand in hands:
+            all_cards = table + check_hand
+            opponent = evaluate_cards(all_cards[0],all_cards[1],all_cards[2],all_cards[3],all_cards[4],all_cards[5],all_cards[6])
+            # from the definition of the library we use for hand evaluation, larger evaluations correspond to less strong hands
+            #so, the game is won by the player with the smallest hand evaluation
+            if opponent < my_hand_rank:
+                ergebnis.append(1) #'LOSE'
+            elif opponent == my_hand_rank:
+                ergebnis.append(2) #'SPLIT'
+            else:
+                ergebnis.append(0) #'WIN'
+
+        unentschieden=0
+        gewonnen=0
+        for i in range(len(ergebnis)):
+            if ergebnis[i]==1:
+                return 1 #verloren
+            if ergebnis[i]==0:
+                gewonnen+=1
+            if ergebnis[i]==2:
+                unentschieden+=1
+        if unentschieden==players:
+            return 2 #unentschieden
+        if gewonnen>0 and (gewonnen+unentschieden)==players:
+            return 0 #gewonnen
+    else:
+        return 3 #nicht in bereich
+        
+
+def bereich(BereichEingabe):
+    bereich=[]
+    for i in range (len(BereichEingabe)):
+        karte1=BereichEingabe[i][0]
+        karte2=BereichEingabe[i][1]
+        if not (BereichEingabe[i][2]=='suited' and BereichEingabe[i][0]==BereichEingabe[i][1]):
+            if BereichEingabe[i][2]=='suited':
+                bereich.append([(karte1+'s'),(karte2+'s')])
+                bereich.append([(karte2+'s'),(karte1+'s')])
+                bereich.append([(karte1+'c'),(karte2+'c')])
+                bereich.append([(karte2+'c'),(karte1+'c')])
+                bereich.append([(karte1+'d'),(karte2+'d')])
+                bereich.append([(karte2+'d'),(karte1+'d')])
+                bereich.append([(karte1+'h'),(karte2+'h')])
+                bereich.append([(karte2+'h'),(karte1+'h')])
+            else:
+                bereich.append([(karte1+'s'),(karte2+'c')])
+                bereich.append([(karte1+'s'),(karte2+'d')])
+                bereich.append([(karte1+'s'),(karte2+'h')])
+                bereich.append([(karte1+'c'),(karte2+'s')])
+                bereich.append([(karte1+'c'),(karte2+'d')])
+                bereich.append([(karte1+'c'),(karte2+'h')])
+                bereich.append([(karte1+'d'),(karte2+'s')])
+                bereich.append([(karte1+'d'),(karte2+'c')])
+                bereich.append([(karte1+'d'),(karte2+'h')])
+                bereich.append([(karte1+'h'),(karte2+'s')])
+                bereich.append([(karte1+'h'),(karte2+'c')])
+                bereich.append([(karte1+'h'),(karte2+'d')])
+                bereich.append([(karte2+'s'),(karte1+'c')])
+                bereich.append([(karte2+'s'),(karte1+'d')])
+                bereich.append([(karte2+'s'),(karte1+'h')])
+                bereich.append([(karte2+'c'),(karte1+'s')])
+                bereich.append([(karte2+'c'),(karte1+'d')])
+                bereich.append([(karte2+'c'),(karte1+'h')])
+                bereich.append([(karte2+'d'),(karte1+'s')])
+                bereich.append([(karte2+'d'),(karte1+'c')])
+                bereich.append([(karte2+'d'),(karte1+'h')])
+                bereich.append([(karte2+'h'),(karte1+'s')])
+                bereich.append([(karte2+'h'),(karte1+'c')])
+                bereich.append([(karte2+'h'),(karte1+'d')])
+    return bereich
+    
+def monte_carlo(hand, table, bereich1, bereich2, players, samples):
+    dist = [0,0,0]
+
+    for i in range(samples):
+        outcome = simulate(hand, table, players, bereich1, bereich2)
+        if not outcome==3:
+            dist[outcome] += 1
+        else:
+            samples-=1
+    return list(map(lambda x: x/samples, dist))
+
+Bereich1=[['A','K','suited'],['A','K','offsuit'],['A','A','offsuit'],['A','Q','suited'],['A','Q','offsuit'],['K','Q','suited'],['K','Q','offsuit'],['A','J','suited'],['K','J','suited'],['A','T','suited'],['K','K','offsuit'],['Q','Q','offsuit'],['J','J','offsuit'],['T','T','offsuit'],['9','9','offsuit'], ['8','8','offsuit'] ]
+
+BereichBsp52=[['8','8','offsuit'], ['A','A','offsuit'], ['K','K','offsuit'],['A','K','offsuit'],['A','K','suited'], ['A','Q','suited'],['A','J','suited'],['A','T','suited'],['A','9','suited'],['A','8','suited'],['A','Q','offsuit'],['A','J','offsuit'],['A','T','offsuit'],['A','9','offsuit'],['A','8','offsuit'],['K','8','offsuit'],['K','8','suited']]
+
+
+def BereichAlles():
+    BereichAlles=[]
+    a=0
+    b=0
+    c=0
+    for i in range(13*13*2):
+        aktuellehand=[]
+        aktuellehand.append(ranks[a])
+        aktuellehand.append(ranks[b])
+        if c==0:
+            aktuellehand.append('suited')
+        else:
+            aktuellehand.append('offsuit')
+        BereichAlles.append (aktuellehand)
+        a+=1
+        if a>12:
+            a=0
+            b+=1
+        if b>12:
+            b=0
+            c+=1
+    return BereichAlles
+
+print(monte_carlo(['Kd','8s'], ['Th','9c','Jh','Jc','Js'],bereich(BereichAlles()),bereich(BereichAlles()),1,100000))
